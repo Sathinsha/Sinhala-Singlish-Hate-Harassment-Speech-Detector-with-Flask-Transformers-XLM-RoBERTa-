@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hate & Harassment Speech Detection</title>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        :root{
+            --bg:#ffffff;
+            --text:#1f2937;
+            --muted:#6b7280;
+            --primary:#2563eb;
+            --primary-2:#3b82f6;
+            --success:#10b981;
+            --danger:#ef4444;
+            --warning:#f59e0b;
+            --panel:#ffffff;
+            --panel-border:#e5e7eb;
+            --chip:#f3f4f6;
+        }
+        body{ font-family: Inter, Segoe UI, Tahoma, sans-serif; background: var(--bg); color: var(--text); }
+        .layout{ display:flex; min-height:100vh; }
+        .sidebar{ width:260px; border-right:1px solid var(--panel-border); padding:24px 16px; position:sticky; top:0; height:100vh; }
+        .brand{ font-weight:800; font-size:18px; margin-bottom:24px; }
+        .nav a{ position:relative; display:block; padding:10px 12px; border-radius:8px; color:var(--text); text-decoration:none; margin-bottom:8px; border:1px solid transparent; transition: background .2s, border-color .2s, color .2s; }
+        .nav a:hover{ background:#f8fafc; border-color:var(--panel-border); }
+        .nav a.active{ border-color:var(--primary); color:var(--primary); background:#eff6ff; }
+        .nav a.active::before{ content:""; position:absolute; left:-8px; top:50%; transform:translateY(-50%); width:4px; height:22px; background: linear-gradient(180deg, var(--primary), var(--primary-2)); border-radius:2px; }
+        .content{ flex:1; padding:24px; scroll-behavior:smooth; }
+        .header{ text-align:center; margin-bottom:16px; }
+        .header h1{ font-size:28px; font-weight:800; }
+        .header p{ color:var(--muted); margin-top:6px; font-weight:600; }
+        .badge{ display:inline-block; padding:6px 10px; border-radius:999px; font-weight:800; font-size:12px; border:1px solid var(--panel-border); margin-left:8px; }
+        .badge-success{ background:#ecfdf5; color:#065f46; border-color:#a7f3d0; }
+        .badge-danger{ background:#fef2f2; color:#991b1b; border-color:#fecaca; }
+        .grid{ display:grid; grid-template-columns: 2fr 1fr; gap:16px; }
+        .panel{ background:var(--panel); border:1px solid var(--panel-border); border-radius:12px; padding:16px; box-shadow: 0 2px 8px rgba(0,0,0,.03); transition: box-shadow .2s, border-color .2s; }
+        /* Active section highlight */
+        .section-active{ border-color: var(--primary); box-shadow: 0 4px 16px rgba(37,99,235,.15), 0 0 0 3px rgba(37,99,235,.1) inset; }
+        .theme-blue{ background: linear-gradient(180deg, #eef6ff, #ffffff); border-color:#dbeafe; }
+        .theme-purple{ background: linear-gradient(180deg, #f3e8ff, #ffffff); border-color:#e9d5ff; }
+        .theme-green{ background: linear-gradient(180deg, #ecfdf5, #ffffff); border-color:#d1fae5; }
+        .theme-orange{ background: linear-gradient(180deg, #fff7ed, #ffffff); border-color:#ffedd5; }
+        .panel-title{ text-transform:uppercase; letter-spacing:.8px; color:var(--muted); font-weight:700; font-size:12px; margin-bottom:10px; }
+        .input{ width:100%; border:1px solid var(--panel-border); border-radius:10px; padding:12px; min-height:120px; resize:vertical; }
+        .controls{ display:flex; gap:10px; flex-wrap:wrap; margin-top:10px; }
+        .btn{ border:1px solid transparent; border-radius:8px; padding:10px 14px; font-weight:700; cursor:pointer; }
+        .btn-primary{ background:linear-gradient(180deg, var(--primary), var(--primary-2)); color:#fff; }
+        .btn-secondary{ background:#f3f4f6; border-color: var(--panel-border); }
+        .btn-ghost{ background:transparent; border-color: var(--panel-border); color:var(--muted); }
+        .status-grid{ display:grid; grid-template-columns: 1fr; gap:10px; }
+        .status-card{ border:1px solid var(--panel-border); border-radius:10px; padding:12px; display:flex; align-items:center; justify-content:space-between; background:#ffffffaa; backdrop-filter: blur(2px); }
+        .stat-left .label{ color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.6px; }
+        .stat-left .value{ font-size:18px; font-weight:800; margin-top:4px; }
+        .stat-right{ font-size:12px; padding:6px 10px; border-radius:999px; background:#eef2ff; color:#4f46e5; border:1px solid #e5e7eb; }
+        .chips{ display:flex; gap:8px; flex-wrap:wrap; }
+        .chip{ background:var(--chip); border:1px solid var(--panel-border); border-radius:999px; padding:6px 10px; font-size:12px; font-weight:700; color:var(--muted); }
+        .results{ display:none; margin-top:16px; }
+        .result-row{ display:flex; align-items:center; gap:10px; }
+        .badge-warn{ background:#fffbeb; color:#92400e; border-color:#fde68a; }
+        .tokens{ margin-top:12px; border:1px solid var(--panel-border); border-radius:10px; padding:12px; }
+        .token-item{ display:inline-block; padding:8px 10px; border-radius:8px; margin:6px; font-size:12px; font-weight:700; }
+        .token-neutral{ background:#ecfdf5; color:#065f46; }
+        .token-hate{ background:#fef2f2; color:#991b1b; }
+        .error{ display:none; background:#fef2f2; border:1px solid #fecaca; border-radius:8px; color:#991b1b; padding:12px; margin-top:12px; }
+        .hidden{ display:none; }
+        .feedback-form{ display:none; gap:8px; margin-top:10px; }
+        .feedback-form input{ flex:1; border:1px solid var(--panel-border); border-radius:8px; padding:10px; }
+        .developers{ display:flex; flex-wrap:wrap; justify-content:center; gap:10px; }
+        .dev-card{ border:1px solid var(--panel-border); border-radius:10px; padding:12px; background:#fafafa; width:200px; text-align:center; }
+    </style>
+</head>
+<body>
+<div class="layout">
+    <aside class="sidebar">
+        <div class="brand">H&H Detection</div>
+        <nav class="nav" id="sidebar-nav">
+            <a href="#dashboard" class="active">Dashboard</a>
+            <a href="#system">System Overview</a>
+            <a href="#developers">Developers</a>
+            <a href="#feedback">Feedback</a>
+        </nav>
+    </aside>
+    <main class="content">
+        <section id="dashboard" class="header">
+            <h1>Hate & Harassment Speech Detection</h1>
+            <p>Operational status: <strong>Model status Active • Real-time inference</strong>
+                <span id="system-status" class="badge badge-success">Online</span>
+            </p>
+        </section>
+
+        <div class="grid">
+            <div class="panel theme-blue" id="panel-input">
+                <div class="panel-title">Input</div>
+                <textarea id="input-text" class="input" placeholder="Type or paste text here..."></textarea>
+                <div class="controls">
+                    <button class="btn btn-primary" onclick="detectHateSpeech()">Detect</button>
+                    <button class="btn btn-secondary" onclick="clearResults()">Clear</button>
+                    <button class="btn btn-ghost" onclick="loadSampleText()">Load Sample</button>
+                </div>
+                <div id="loading" class="error" style="display:none;">Analyzing...</div>
+                <div id="error-message" class="error"></div>
+        </div>
+
+            <div class="panel theme-purple" id="system">
+                <div class="panel-title">System Overview</div>
+                <div class="status-grid">
+                    <div class="status-card">
+                        <div class="stat-left">
+                            <div class="label">Model</div>
+                            <div class="value" id="stat-model">-</div>
+                        </div>
+                        <div class="stat-right">XLM-RoBERTa</div>
+                    </div>
+                    <div class="status-card">
+                        <div class="stat-left">
+                            <div class="label">Max Length</div>
+                            <div class="value" id="stat-maxlen">-</div>
+                        </div>
+                        <div class="stat-right">Tokenizer</div>
+                    </div>
+                    <div class="status-card">
+                        <div class="stat-left">
+                            <div class="label">Labels</div>
+                            <div class="value" id="stat-labels">-</div>
+                        </div>
+                        <div class="stat-right">Token Class.</div>
+                    </div>
+                </div>
+                <div style="margin-top:12px;">
+                    <div class="panel-title">Session Summary</div>
+                    <div class="chips" id="prev-chips"></div>
+                    <div class="chips" style="margin-top:8px;">
+                        <span class="chip">Inference engine: XLM-RoBERTa</span>
+                        <span class="chip">Word-level alignment</span>
+                    </div>
+                </div>
+            </div>
+            </div>
+
+        <div class="panel theme-green results" id="results-section">
+            <div class="result-row">
+                <div id="result-label" class="badge">Result</div>
+                <div id="confidence-badge" class="badge badge-warn">Confidence</div>
+                <div style="margin-left:auto; display:flex; gap:8px;">
+                    <button id="btn-show" class="btn btn-secondary hidden" onclick="toggleHidden(true)">View</button>
+                    <button id="btn-hide" class="btn btn-secondary hidden" onclick="toggleHidden(false)">Hide</button>
+                    <button id="btn-fp" class="btn btn-ghost hidden" onclick="showFeedback('not_hate')">Do you think this is NOT HATE?</button>
+                    <button id="btn-fn" class="btn btn-ghost hidden" onclick="showFeedback('hate')">Do you think this is HATE?</button>
+                </div>
+                </div>
+
+            <div id="protected-block" class="hidden">
+                <div class="panel-title">Detected Hate Words</div>
+                <div class="tokens" id="hate-words" style="display:none;">
+                    <div id="hate-words-list"></div>
+                </div>
+                <div class="panel-title">Word-Level Analysis</div>
+                <div class="tokens" id="token-analysis-content"></div>
+                </div>
+
+            <div id="feedback" class="feedback-form">
+                <input type="text" id="feedback-words" placeholder="Enter word(s), comma-separated" />
+                <button class="btn btn-primary" onclick="submitFeedback()">Submit</button>
+                <button class="btn btn-secondary" onclick="hideFeedback()">Cancel</button>
+            </div>
+            </div>
+
+        <div class="panel theme-orange" style="margin-top:16px;" id="developers">
+            <div class="panel-title">Developers</div>
+            <div class="developers">
+                <div class="dev-card">22ug-0722</div>
+                <div class="dev-card">22ug1-0634</div>
+                <div class="dev-card">22ug1-0360</div>
+                <div class="dev-card">22ug1-0763</div>
+                <div class="dev-card">22ug1-0754</div>
+                <div class="dev-card">22ug1-0802</div>
+                <div class="dev-card">21ug1128</div>
+                <div class="dev-card">21ug1014</div>
+                <div class="dev-card">21ug0990</div>
+                <div class="dev-card">21ug1089</div>
+            </div>
+        </div>
+    </main>
+    </div>
+
+    <script>
+    const prevResults = [];
+    let feedbackMode = null;
+
+    // references to section panels
+    const headerSection = document.getElementById('dashboard');
+    const inputPanel = document.getElementById('panel-input');
+    const systemPanel = document.getElementById('system');
+    const resultsPanel = document.getElementById('results-section');
+    const developersPanel = document.getElementById('developers');
+
+    function setSectionActive(id){
+        [inputPanel, systemPanel, resultsPanel, developersPanel].forEach(el=> el && el.classList.remove('section-active'));
+        if(id==='#dashboard'){ inputPanel.classList.add('section-active'); }
+        else if(id==='#system'){ systemPanel.classList.add('section-active'); }
+        else if(id==='#developers'){ developersPanel.classList.add('section-active'); }
+        else if(id==='#feedback'){ resultsPanel.classList.add('section-active'); }
+    }
+
+    // Sidebar: smooth scroll + immediate active mark on click
+    const nav = document.getElementById('sidebar-nav');
+    const links = Array.from(nav.querySelectorAll('a'));
+    nav.addEventListener('click', (e)=>{
+        const a = e.target.closest('a');
+        if(!a) return;
+        const href = a.getAttribute('href');
+        if(href && href.startsWith('#')){
+            e.preventDefault();
+            links.forEach(x=>x.classList.remove('active'));
+            a.classList.add('active');
+            setSectionActive(href);
+            const target = document.querySelector(href);
+            if(target){ target.scrollIntoView({behavior:'smooth', block:'start'}); }
+        }
+    });
+
+    // Active on scroll
+    const sections = ['#dashboard','#system','#developers','#feedback'].map(s=>document.querySelector(s));
+    const observer = new IntersectionObserver((entries)=>{
+        entries.forEach(entry=>{
+            if(entry.isIntersecting){
+                const id = '#'+entry.target.id;
+                links.forEach(a=>a.classList.toggle('active', a.getAttribute('href')===id));
+                setSectionActive(id);
+            }
+        });
+    }, { root:null, rootMargin:'0px 0px -60% 0px', threshold:0.2 });
+    sections.forEach(s=>{ if(s) observer.observe(s); });
+
+    function pushPrev(text, label, conf){
+        prevResults.unshift({text, label, conf});
+        if(prevResults.length>6) prevResults.pop();
+        const chips = document.getElementById('prev-chips');
+        chips.innerHTML = prevResults.map(r=>{
+            const color = r.label==='HATE'? 'background:#fef2f2; color:#991b1b; border-color:#fecaca;' : 'background:#ecfdf5; color:#065f46; border-color:#a7f3d0;';
+            return `<span class="chip" style="${color}">${r.label} ${(r.conf*100).toFixed(0)}%</span>`;
+        }).join('');
+    }
+
+    async function detectHateSpeech(){
+        const text = document.getElementById('input-text').value.trim();
+        if(!text){ showError('Please enter some text.'); return; }
+        showLoading(true); hideError(); hideFeedback();
+        try{
+            const resp = await fetch('/detect',{method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({text})});
+            const result = await resp.json();
+            if(!resp.ok){ showError(result.error||'Detection failed'); return; }
+            displayResults(result, text);
+        }catch(e){ showError('Network error: '+e.message); }
+        finally{ showLoading(false); }
+    }
+
+    function toggleHidden(show){
+        document.getElementById('protected-block').classList.toggle('hidden', !show);
+        document.getElementById('btn-show').classList.toggle('hidden', show);
+        document.getElementById('btn-hide').classList.toggle('hidden', !show);
+    }
+
+    function showFeedback(mode){ feedbackMode = mode; document.getElementById('feedback').style.display='flex'; document.getElementById('feedback-words').focus(); }
+    function hideFeedback(){ feedbackMode = null; document.getElementById('feedback').style.display='none'; document.getElementById('feedback-words').value=''; }
+    async function submitFeedback(){
+        const text = document.getElementById('input-text').value.trim();
+        const words = document.getElementById('feedback-words').value.trim();
+        if(!feedbackMode || !text || !words){ hideFeedback(); return; }
+        const url = feedbackMode==='hate' ? '/feedback/hate_missed' : '/feedback/false_positive';
+        try{
+            const resp = await fetch(url,{method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({text, words})});
+            const data = await resp.json();
+            if(!resp.ok){ showError(data.error||'Failed to submit feedback'); return; }
+            hideFeedback();
+            alert('Thanks! Your feedback was recorded for review.');
+        }catch(e){ showError('Failed to submit feedback: '+e.message); }
+    }
+
+    function displayResults(result, inputText){
+        const res = document.getElementById('results-section');
+        const labelEl = document.getElementById('result-label');
+        const confEl = document.getElementById('confidence-badge');
+            const hateWords = document.getElementById('hate-words');
+            const hateWordsList = document.getElementById('hate-words-list');
+            const tokenAnalysis = document.getElementById('token-analysis-content');
+        const btnFP = document.getElementById('btn-fp');
+        const btnFN = document.getElementById('btn-fn');
+        const btnShow = document.getElementById('btn-show');
+        const btnHide = document.getElementById('btn-hide');
+
+        labelEl.textContent = result.sentence_label;
+        labelEl.className = 'badge ' + (result.sentence_label==='HATE'?'badge-danger':'badge-success');
+        confEl.textContent = `Confidence: ${(result.confidence*100).toFixed(1)}%`;
+        confEl.className = 'badge ' + (result.confidence>0.7?'badge-success': result.confidence>0.4?'badge-warn':'badge-danger');
+
+        if(result.sentence_label==='HATE'){ btnFP.classList.remove('hidden'); btnFN.classList.add('hidden'); }
+        else { btnFN.classList.remove('hidden'); btnFP.classList.add('hidden'); }
+
+        if(result.sentence_label==='HATE'){ btnShow.classList.remove('hidden'); btnHide.classList.add('hidden'); document.getElementById('protected-block').classList.add('hidden'); }
+        else { btnShow.classList.add('hidden'); btnHide.classList.add('hidden'); document.getElementById('protected-block').classList.remove('hidden'); }
+
+            if (result.hate_words && result.hate_words.length > 0) {
+                hateWords.style.display = 'block';
+            hateWordsList.innerHTML = result.hate_words.map(w => `<span class="token-item token-hate">${(w.word||w)}</span>`).join('');
+        } else { hateWords.style.display = 'none'; }
+
+        if (result.words && result.words.length > 0) {
+            let wordHtml = '';
+            for (let i = 0; i < result.words.length; i++) {
+                const word = result.words[i];
+                const prediction = result.word_predictions[i];
+                const probability = result.word_probabilities[i];
+                const pText = Array.isArray(probability) ? `${(probability[1]*100).toFixed(0)}%` : `${(probability*100).toFixed(0)}%`;
+                const klass = prediction===1?'token-hate':'token-neutral';
+                wordHtml += `<span class="token-item ${klass}" title="${pText}">${word}</span>`;
+            }
+            tokenAnalysis.innerHTML = wordHtml;
+        }
+
+        res.style.display='block';
+        pushPrev(inputText, result.sentence_label, result.confidence);
+    }
+
+    async function getStats(){
+        try{
+            const resp = await fetch('/stats');
+            const s = await resp.json();
+            if(!resp.ok){ showError(s.error||'Stats failed'); return; }
+            document.getElementById('stat-model').textContent = s.model.model_name;
+            document.getElementById('stat-maxlen').textContent = s.model.max_length;
+            document.getElementById('stat-labels').textContent = s.model.num_labels;
+        }catch(e){ showError('Failed to get stats: '+e.message); }
+        try{
+            const rh = await fetch('/health');
+            const h = await rh.json();
+            const badge = document.getElementById('system-status');
+            if(rh.ok && h.status==='healthy' && h.model_loaded && h.tokenizer_loaded){
+                badge.textContent = 'Online'; badge.className = 'badge badge-success';
+                } else {
+                badge.textContent = 'Offline'; badge.className = 'badge badge-danger';
+            }
+        }catch(e){ const badge=document.getElementById('system-status'); badge.textContent='Offline'; badge.className='badge badge-danger'; }
+    }
+
+    function loadSampleText(){
+        const samples=["මම ඔබට උදව් කරන්නම්","ඔබ බොහෝ හොඳයි","මෝඩයා එතන යන්න","හුත්තො මෝඩයා බූරුවා","pakaya mokada"]; document.getElementById('input-text').value=samples[Math.floor(Math.random()*samples.length)];
+    }
+    function clearResults(){ document.getElementById('input-text').value=''; document.getElementById('results-section').style.display='none'; hideError(); hideFeedback(); }
+    function showLoading(s){ document.getElementById('loading').style.display= s?'block':'none'; }
+    function showError(m){ const e=document.getElementById('error-message'); e.textContent=m; e.style.display='block'; }
+    function hideError(){ document.getElementById('error-message').style.display='none'; }
+
+    document.addEventListener('DOMContentLoaded', ()=>{ getStats(); });
+    </script>
+</body>
+</html>

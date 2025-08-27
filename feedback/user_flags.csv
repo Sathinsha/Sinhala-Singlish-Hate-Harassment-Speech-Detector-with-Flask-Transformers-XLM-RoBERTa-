@@ -1,0 +1,3 @@
+timestamp,input_text,model_label,user_thinks_label,user_words,client_ip,user_agent
+2025-08-26T11:10:03.870579,මෝඩයා එතන යන්න,HATE,NOT_HATE,modaya,127.0.0.1,"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36"
+2025-08-26T15:27:09.767302,හුත්තො මෝඩයා බූරුවා,HATE,NOT_HATE,hello,127.0.0.1,"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36"
