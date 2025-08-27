@@ -183,7 +183,7 @@ See `config_xlm_roberta.py`:
 ## 👥 Developers
 
 ```
-22ug-0722, 22ug1-0634, 22ug1-0360, 22ug1-0763,
+22ug-0722, 22ug1-0634, 22ug1-0630, 22ug1-0763,
 22ug1-0754, 22ug1-0802, 21ug1128, 21ug1014, 21ug0990, 21ug1089
 ```
 
@@ -200,4 +200,5 @@ This repository is for educational and research purposes. Ensure compliance with
 - XLM‑RoBERTa
 
 > PRs and issues welcome – feel free to open a discussion for feature requests or improvements!
+
 
